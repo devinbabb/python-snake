@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Snake Game</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Snake Game</h1>
+        <h2>High Scores</h2>
+    </header>
+    <div class="game-container">
+        <div class="game">
+            <canvas id="gameCanvas" width="400" height="400"></canvas>
+            <div class="score" id="currentScore">Score: 0</div>
+            <form id="scoreForm" method="POST" action="{{ url_for('highscores') }}" style="display:none;">
+                <input type="text" name="name" placeholder="Your name" required>
+                <input type="hidden" name="score" id="scoreInput">
+                <input type="hidden" name="nonce" id="nonceInput"> <!-- Add this line -->
+                <input type="hidden" name="timestamp" id="timestampInput"> <!-- Add this line -->
+                <button type="submit">Submit Score</button>
+            </form>            
+            <div class="notification" id="notification">Press any arrow key or use the D-pad to start the game</div>
+            <div class="bottom-controls">
+                <div class="dpad">
+                    <div class="row">
+                        <button id="upBtn">↑</button>
+                    </div>
+                    <div class="row">
+                        <button id="leftBtn">←</button>
+                        <button id="downBtn">↓</button>
+                        <button id="rightBtn">→</button>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        <div class="highscores">
+            <table id="highScoresTable">
+                <tr>
+                    <th>Name</th>
+                    <th>Score</th>
+                </tr>
+                {% for score in scores %}
+                <tr>
+                    <td>{{ score.name }}</td>
+                    <td>{{ score.score }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+            <div class="bottom-controls">
+                <button class="theme-toggle" id="themeToggle">Switch to Light Mode</button>
+            </div>
+            
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let snake = [{x: 200, y: 200}];
+        let direction = 'RIGHT';
+        let food = {x: Math.floor(Math.random() * 20) * 20, y: Math.floor(Math.random() * 20) * 20};
+        let score = 0;
+        let gameStarted = false;
+        let secretKey = '';
+        let nonce = '';
+        
+        // Function to send events to the server
+        function sendEvent(event) {
+            fetch('/log_event', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(event),
+            });
+        }
+
+        function hmacSHA256(key, message) {
+            const encoder = new TextEncoder();
+            const keyData = encoder.encode(key);
+            const messageData = encoder.encode(message);
+
+            return crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+                .then(importedKey => crypto.subtle.sign('HMAC', importedKey, messageData))
+                .then(signature => {
+                    const hashArray = Array.from(new Uint8Array(signature));
+                    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                    return hashHex;
+                });
+        }
+
+        document.addEventListener('keydown', startGame);
+
+        document.getElementById('upBtn').addEventListener('click', () => handleDpadPress({ keyCode: 38 }));
+        document.getElementById('downBtn').addEventListener('click', () => handleDpadPress({ keyCode: 40 }));
+        document.getElementById('leftBtn').addEventListener('click', () => handleDpadPress({ keyCode: 37 }));
+        document.getElementById('rightBtn').addEventListener('click', () => handleDpadPress({ keyCode: 39 }));
+
+        function startGame(event) {
+            if (!gameStarted && (event.keyCode === 37 || event.keyCode === 38 || event.keyCode === 39 || event.keyCode === 40)) {
+                gameStarted = true;
+                document.getElementById('notification').style.display = 'none';
+                document.removeEventListener('keydown', startGame);
+                document.addEventListener('keydown', changeDirection);
+                gameLoop();
+            }
+        }
+
+        function handleDpadPress(event) {
+            if (!gameStarted) {
+                startGame(event);
+            }
+            changeDirection(event);
+        }
+
+        function changeDirection(event) {
+            const keyPressed = event.keyCode;
+            if (keyPressed === 37 && direction !== 'RIGHT') direction = 'LEFT';
+            if (keyPressed === 38 && direction !== 'DOWN') direction = 'UP';
+            if (keyPressed === 39 && direction !== 'LEFT') direction = 'RIGHT';
+            if (keyPressed === 40 && direction !== 'UP') direction = 'DOWN';
+            sendEvent({ type: 'move', direction: direction });
+        }
+
+        function moveSnake() {
+            const head = {x: snake[0].x, y: snake[0].y};
+            if (direction === 'LEFT') head.x -= 20;
+            if (direction === 'UP') head.y -= 20;
+            if (direction === 'RIGHT') head.x += 20;
+            if (direction === 'DOWN') head.y += 20;
+            snake.unshift(head);
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                document.getElementById('currentScore').innerText = 'Score: ' + score;
+                food = {x: Math.floor(Math.random() * 20) * 20, y: Math.floor(Math.random() * 20) * 20};
+                sendEvent({ type: 'food', position: food });
+            } else {
+                snake.pop();
+            }
+        }
+
+        function drawSnake() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'green';
+            for (let part of snake) {
+                ctx.fillRect(part.x, part.y, 20, 20);
+            }
+            ctx.fillStyle = 'red';
+            ctx.fillRect(food.x, food.y, 20, 20);
+        }
+
+        function gameLoop() {
+            if (gameOver()) {
+                document.getElementById('scoreInput').value = score;
+                document.getElementById('scoreForm').style.display = 'flex';
+                return;
+            }
+            setTimeout(() => {
+                moveSnake();
+                drawSnake();
+                gameLoop();
+            }, 100);
+        }
+
+        function gameOver() {
+            const head = snake[0];
+            for (let part of snake.slice(1)) {
+                if (head.x === part.x && head.y === part.y) return true;
+            }
+            if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height) return true;
+
+            const scoreInput = document.getElementById('scoreInput');
+            const nonceInput = document.getElementById('nonceInput');
+            const timestampInput = document.getElementById('timestampInput');
+            const currentTime = Math.floor(Date.now() / 1000);
+            
+            scoreInput.value = score;
+            timestampInput.value = currentTime;
+
+            const message = `${score}${nonce}${currentTime}`;
+            hmacSHA256(secretKey, message).then(hmac => {
+                nonceInput.value = hmac;
+                document.getElementById('scoreForm').style.display = 'flex';
+            });
+
+            return false;
+        }
+
+        const themeToggleButton = document.getElementById('themeToggle');
+        themeToggleButton.addEventListener('click', toggleTheme);
+
+        function toggleTheme() {
+            document.body.classList.toggle('light-mode');
+            if (document.body.classList.contains('light-mode')) {
+                themeToggleButton.textContent = 'Switch to Dark Mode';
+                localStorage.setItem('theme', 'light');
+            } else {
+                themeToggleButton.textContent = 'Switch to Light Mode';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        window.onload = () => {
+            fetch('/start_game')
+                .then(response => response.json())
+                .then(data => {
+                    secretKey = data.secret_key;
+                    nonce = data.nonce;
+                    sendEvent({ type: 'start' });
+                });
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme && savedTheme === 'light') {
+                document.body.classList.add('light-mode');
+                themeToggleButton.textContent = 'Switch to Dark Mode';
+            } else {
+                document.body.classList.remove('light-mode');
+                themeToggleButton.textContent = 'Switch to Light Mode';
+            }
+        }
+    </script>
+</body>
+</html>
