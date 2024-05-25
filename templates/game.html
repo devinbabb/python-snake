@@ -15,13 +15,15 @@
         <div class="game">
             <canvas id="gameCanvas" width="400" height="400"></canvas>
             <div class="score" id="currentScore">Score: 0</div>
-            <form id="scoreForm" method="POST" action="{{ url_for('highscores') }}" style="display:none;">
-                <input type="text" name="name" placeholder="Your name" required>
-                <input type="hidden" name="score" id="scoreInput">
-                <input type="hidden" name="nonce" id="nonceInput"> <!-- Add this line -->
-                <input type="hidden" name="timestamp" id="timestampInput"> <!-- Add this line -->
-                <button type="submit">Submit Score</button>
-            </form>            
+            <div class="submitScores" id="submitScores">
+                <form id="scoreForm" method="POST" action="{{ url_for('highscores') }}" style="display:none;">
+                    <input type="text" name="name" placeholder="Your name" required>
+                    <input type="hidden" name="score" id="scoreInput">
+                    <input type="hidden" name="nonce" id="nonceInput"> <!-- Add this line -->
+                    <input type="hidden" name="timestamp" id="timestampInput"> <!-- Add this line -->
+                    <button type="submit">Submit Score</button>
+                </form>        
+            </div>    
             <div class="notification" id="notification">Press any arrow key or use the D-pad to start the game</div>
             <div class="bottom-controls">
                 <div class="dpad">
@@ -108,6 +110,7 @@
             if (!gameStarted && (event.keyCode === 37 || event.keyCode === 38 || event.keyCode === 39 || event.keyCode === 40)) {
                 gameStarted = true;
                 document.getElementById('notification').style.display = 'none';
+                document.getElementById('submitScores').style.display = 'none';
                 document.removeEventListener('keydown', startGame);
                 document.addEventListener('keydown', changeDirection);
                 gameLoop();
@@ -161,6 +164,7 @@
             if (gameOver()) {
                 document.getElementById('scoreInput').value = score;
                 document.getElementById('scoreForm').style.display = 'flex';
+                document.getElementById('submitScores').style.display = 'flex';
                 return;
             }
             setTimeout(() => {
@@ -176,7 +180,6 @@
                 if (head.x === part.x && head.y === part.y) return true;
             }
             if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height) return true;
-
             const scoreInput = document.getElementById('scoreInput');
             const nonceInput = document.getElementById('nonceInput');
             const timestampInput = document.getElementById('timestampInput');
@@ -190,7 +193,6 @@
                 nonceInput.value = hmac;
                 document.getElementById('scoreForm').style.display = 'flex';
             });
-
             return false;
         }
 
