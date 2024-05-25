@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Snake Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
@@ -93,10 +94,15 @@
 
         document.addEventListener('keydown', startGame);
 
-        document.getElementById('upBtn').addEventListener('click', () => handleDpadPress({ keyCode: 38 }));
-        document.getElementById('downBtn').addEventListener('click', () => handleDpadPress({ keyCode: 40 }));
-        document.getElementById('leftBtn').addEventListener('click', () => handleDpadPress({ keyCode: 37 }));
-        document.getElementById('rightBtn').addEventListener('click', () => handleDpadPress({ keyCode: 39 }));
+        document.getElementById('upBtn').addEventListener('touchstart', () => handleDpadPress({ keyCode: 38 }));
+        document.getElementById('downBtn').addEventListener('touchstart', () => handleDpadPress({ keyCode: 40 }));
+        document.getElementById('leftBtn').addEventListener('touchstart', () => handleDpadPress({ keyCode: 37 }));
+        document.getElementById('rightBtn').addEventListener('touchstart', () => handleDpadPress({ keyCode: 39 }));
+
+        document.getElementById('upBtn').addEventListener('mousedown', () => handleDpadPress({ keyCode: 38 }));
+        document.getElementById('downBtn').addEventListener('mousedown', () => handleDpadPress({ keyCode: 40 }));
+        document.getElementById('leftBtn').addEventListener('mousedown', () => handleDpadPress({ keyCode: 37 }));
+        document.getElementById('rightBtn').addEventListener('mousedown', () => handleDpadPress({ keyCode: 39 }));
 
         function startGame(event) {
             if (!gameStarted && (event.keyCode === 37 || event.keyCode === 38 || event.keyCode === 39 || event.keyCode === 40)) {
